@@ -42,13 +42,25 @@ function findInMap(map, key) {
   return undefined
 }
 
-// Priority order: lower index = better for traveller
-const VISA_PRIORITY = ['citizen', 'visa free', 'e-visa', 'visa on arrival', 'visa required', 'no admission']
+// Priority order: lower index = better for the traveller.
+// eta   = Electronic Travel Authorisation (trivial online form, minutes, no docs)
+// e-visa = Electronic visa (real application, documents, waiting period)
+// -1 in the raw data means no information; treated as worst case.
+const VISA_PRIORITY = [
+  'citizen',
+  'visa free',  // numeric stay-days also map here
+  'eta',
+  'visa on arrival',
+  'e-visa',
+  'visa required',
+  'no admission',
+]
 
 function normVisa(value) {
   if (!value) return ''
   const v = value.toLowerCase().trim()
-  if (/^\d+$/.test(v)) return 'visa free'
+  if (/^\d+$/.test(v)) return 'visa free'  // numeric = days of visa-free stay
+  if (v === '-1') return 'citizen'          // diagonal entries: same-country = citizen
   return v
 }
 
@@ -58,22 +70,32 @@ function visaPriorityIndex(value) {
   return idx === -1 ? VISA_PRIORITY.length : idx
 }
 
+// Scoring tiers:
+//   'free'     — no friction: citizen, visa free, numeric stay, eTA, resident
+//   'easy'     — minor friction: visa on arrival (decided at the border)
+//   'evisa'    — real effort: online application with docs/fees/waiting
+//   'required' — embassy application required
+//   'blocked'  — no admission
 function visaCategoryType(value) {
+  if (value === 'resident') return 'free'
   const n = normVisa(value)
-  if (n === 'citizen' || n === 'visa free') return 'free'
-  if (n === 'e-visa' || n === 'visa on arrival') return 'easy'
+  if (n === 'citizen' || n === 'visa free' || n === 'eta') return 'free'
+  if (n === 'visa on arrival') return 'easy'
+  if (n === 'e-visa') return 'evisa'
   if (n === 'visa required') return 'required'
   if (n === 'no admission') return 'blocked'
   return 'unknown'
 }
 
 function visaCategoryLabel(value) {
+  if (value === 'resident') return 'Resident'
   if (!value) return 'Unknown'
   const n = normVisa(value)
   if (n === 'citizen') return 'Citizen'
   if (n === 'visa free') return 'Visa Free'
-  if (n === 'e-visa') return 'eVisa'
+  if (n === 'eta') return 'eTA'
   if (n === 'visa on arrival') return 'Visa on Arrival'
+  if (n === 'e-visa') return 'eVisa'
   if (n === 'visa required') return 'Visa Required'
   if (n === 'no admission') return 'No Admission'
   return value
@@ -102,53 +124,49 @@ function getBestVisaOutcome(matrix, passportCountries, destCountry) {
   return { value: bestValue, passport: bestPassport }
 }
 
-function estimateTravelEffort(memberAirports, destIata, airports, routes) {
-  const destAirport = airports.get(destIata)
-  if (!destAirport) return { hours: 30, type: 'no_route', origin: null }
-
+// destIatas is an array — member can fly to any airport in the destination city.
+function estimateTravelEffort(memberAirports, destIatas, airports, routes) {
   let bestHours = Infinity
   let bestType = 'no_route'
   let bestOrigin = null
 
-  for (const originIata of memberAirports) {
-    if (originIata === destIata) return { hours: 0, type: 'direct', origin: originIata }
+  for (const destIata of destIatas) {
+    const destAirport = airports.get(destIata)
+    if (!destAirport) continue
 
-    const originAirport = airports.get(originIata)
-    if (!originAirport) continue
+    for (const originIata of memberAirports) {
+      if (originIata === destIata) return { hours: 0, type: 'direct', origin: originIata }
 
-    const baseHours = flightHours(
-      originAirport.lat, originAirport.lon,
-      destAirport.lat, destAirport.lon,
-    )
+      const originAirport = airports.get(originIata)
+      if (!originAirport) continue
 
-    // Direct?
-    if (routes.forward.get(originIata)?.has(destIata)) {
-      if (baseHours < bestHours) {
-        bestHours = baseHours
-        bestType = 'direct'
-        bestOrigin = originIata
-      }
-      continue
-    }
+      const baseHours = flightHours(
+        originAirport.lat, originAirport.lon,
+        destAirport.lat, destAirport.lon,
+      )
 
-    // 1-stop?
-    const originNeighbors = routes.forward.get(originIata)
-    const destFeeders = routes.reverse.get(destIata)
-    if (originNeighbors && destFeeders) {
-      let hasConnection = false
-      for (const neighbor of originNeighbors) {
-        if (destFeeders.has(neighbor)) { hasConnection = true; break }
-      }
-      if (hasConnection) {
-        const h = baseHours + 2.5
-        if (h < bestHours) { bestHours = h; bestType = 'one_stop'; bestOrigin = originIata }
+      if (routes.forward.get(originIata)?.has(destIata)) {
+        if (baseHours < bestHours) { bestHours = baseHours; bestType = 'direct'; bestOrigin = originIata }
         continue
       }
-    }
 
-    // 2+ stops
-    const h = baseHours + 6
-    if (h < bestHours) { bestHours = h; bestType = 'two_plus'; bestOrigin = originIata }
+      const originNeighbors = routes.forward.get(originIata)
+      const destFeeders = routes.reverse.get(destIata)
+      if (originNeighbors && destFeeders) {
+        let hasConnection = false
+        for (const neighbor of originNeighbors) {
+          if (destFeeders.has(neighbor)) { hasConnection = true; break }
+        }
+        if (hasConnection) {
+          const h = baseHours + 2.5
+          if (h < bestHours) { bestHours = h; bestType = 'one_stop'; bestOrigin = originIata }
+          continue
+        }
+      }
+
+      const h = baseHours + 6
+      if (h < bestHours) { bestHours = h; bestType = 'two_plus'; bestOrigin = originIata }
+    }
   }
 
   if (bestHours === Infinity) return { hours: 30, type: 'no_route', origin: null }
@@ -172,54 +190,110 @@ export function findUnrecognizedCitizenships(team, passportIndex) {
   return warnings
 }
 
-export function scoreLocations(team, passportIndex, airports, routes) {
+function lookupSafetyScore(candidate, safetyData) {
+  if (!safetyData) return 50
+  if (candidate.iso2) {
+    const s = safetyData.byIso2.get(candidate.iso2)
+    if (s !== undefined) return s
+  }
+  const s = safetyData.byName.get(candidate.country.toLowerCase())
+  return s ?? 50
+}
+
+function lookupCostScore(candidate, costData) {
+  if (!costData) return 50
+  if (candidate.iso2) {
+    const s = costData.byIso2.get(candidate.iso2)
+    if (s !== undefined) return s
+  }
+  const s = costData.byName.get(candidate.country.toLowerCase())
+  return s ?? 50
+}
+
+function scoreSingleCity(candidate, team, matrix, airports, routes, safetyData, costData) {
+  const visaPerMember = team.map(member => {
+    // A team member who lives in the destination country can enter regardless of passport.
+    const isResident = member.residence.trim().toLowerCase() === candidate.country.trim().toLowerCase()
+    if (isResident) {
+      return { name: member.name, value: 'resident', passport: null, label: 'Resident', type: 'free' }
+    }
+    const { value, passport } = getBestVisaOutcome(matrix, member.citizenships, candidate.country)
+    return {
+      name: member.name,
+      value,
+      passport,
+      label: visaCategoryLabel(value),
+      type: visaCategoryType(value),
+    }
+  })
+  const easyCount = visaPerMember.filter(m => m.type === 'free' || m.type === 'easy').length
+  const visaScore = team.length > 0 ? (easyCount / team.length) * 100 : 0
+
+  const destIatas = candidate.iatas ?? [candidate.iata]
+  const travelPerMember = team.map(member => {
+    const effort = estimateTravelEffort(member.airports, destIatas, airports, routes)
+    return {
+      name: member.name,
+      hours: effort.hours,
+      type: effort.type,
+      origin: effort.origin,
+    }
+  })
+  const avgHours = travelPerMember.reduce((s, m) => s + m.hours, 0) / Math.max(team.length, 1)
+  const travelScore = Math.max(0, 100 - avgHours * 4)
+
+  const safetyScore = lookupSafetyScore(candidate, safetyData)
+  const costScore = lookupCostScore(candidate, costData)
+
+  const combinedScore = 0.4 * visaScore + 0.25 * travelScore + 0.15 * safetyScore + 0.2 * costScore
+
+  return {
+    ...candidate,
+    visaScore,
+    travelScore,
+    safetyScore,
+    costScore,
+    combinedScore,
+    easyCount,
+    totalMembers: team.length,
+    avgHours,
+    visaPerMember,
+    travelPerMember,
+  }
+}
+
+export function scoreLocations(team, passportIndex, airports, routes, safetyData, costData) {
   const { matrix } = passportIndex
-  const results = []
+  return CANDIDATE_CITIES
+    .map(candidate => scoreSingleCity(candidate, team, matrix, airports, routes, safetyData, costData))
+    .sort((a, b) => b.combinedScore - a.combinedScore)
+}
 
-  for (const candidate of CANDIDATE_CITIES) {
-    const destCountry = candidate.country
+export function scoreCustomCity(cityDef, team, passportIndex, airports, routes, safetyData, costData) {
+  return scoreSingleCity(cityDef, team, passportIndex.matrix, airports, routes, safetyData, costData)
+}
 
-    // Visa scoring
-    const visaPerMember = team.map(member => {
-      const { value, passport } = getBestVisaOutcome(matrix, member.citizenships, destCountry)
-      return {
-        name: member.name,
-        value,
-        passport,
-        label: visaCategoryLabel(value),
-        type: visaCategoryType(value),
-      }
-    })
-    const easyCount = visaPerMember.filter(m => m.type === 'free' || m.type === 'easy').length
-    const visaScore = team.length > 0 ? (easyCount / team.length) * 100 : 0
+/**
+ * Find all airports for a given city name by searching the airports map.
+ * Returns them sorted by outgoing route count (busiest first).
+ * Falls back to partial/substring match if no exact city name match.
+ */
+export function findAirportsForCity(cityName, airports, routes) {
+  const needle = cityName.trim().toLowerCase()
+  let matches = []
 
-    // Travel scoring
-    const travelPerMember = team.map(member => {
-      const effort = estimateTravelEffort(member.airports, candidate.iata, airports, routes)
-      return {
-        name: member.name,
-        hours: effort.hours,
-        type: effort.type,
-        origin: effort.origin,
-      }
-    })
-    const avgHours = travelPerMember.reduce((s, m) => s + m.hours, 0) / Math.max(team.length, 1)
-    const travelScore = Math.max(0, 100 - avgHours * 4)
-
-    const combinedScore = 0.6 * visaScore + 0.4 * travelScore
-
-    results.push({
-      ...candidate,
-      visaScore,
-      travelScore,
-      combinedScore,
-      easyCount,
-      totalMembers: team.length,
-      avgHours,
-      visaPerMember,
-      travelPerMember,
-    })
+  for (const airport of airports.values()) {
+    if (airport.city.toLowerCase() === needle) matches.push(airport)
   }
 
-  return results.sort((a, b) => b.combinedScore - a.combinedScore)
+  if (matches.length === 0) {
+    for (const airport of airports.values()) {
+      if (airport.city.toLowerCase().includes(needle)) matches.push(airport)
+    }
+  }
+
+  matches.sort((a, b) =>
+    (routes.forward.get(b.iata)?.size ?? 0) - (routes.forward.get(a.iata)?.size ?? 0)
+  )
+  return matches
 }

@@ -2,7 +2,7 @@ import Papa from 'papaparse'
 
 /**
  * Parse a CSV file uploaded by the user into team member objects.
- * Expected columns: name, city, country, citizenships, airports
+ * Expected columns: name, residence, citizenships, airports
  * citizenships and airports are semicolon-separated.
  */
 export function parseTeamCSV(file) {
@@ -20,13 +20,13 @@ export function parseTeamCSV(file) {
           }
         }
 
-        const required = ['name', 'city', 'country', 'citizenships', 'airports']
+        const required = ['name', 'residence', 'citizenships', 'airports']
         const headers = results.meta.fields || []
         const normalized = headers.map(h => h.toLowerCase().trim())
         const missing = required.filter(r => !normalized.includes(r))
 
         if (missing.length > 0) {
-          return reject(new Error(`CSV is missing required columns: ${missing.join(', ')}. Expected: name, city, country, citizenships, airports`))
+          return reject(new Error(`CSV is missing required columns: ${missing.join(', ')}. Expected: name, residence, citizenships, airports`))
         }
 
         const members = results.data
@@ -45,8 +45,7 @@ export function parseTeamCSV(file) {
             return {
               id: idx,
               name: (row.name || '').trim(),
-              city: (row.city || '').trim(),
-              country: (row.country || '').trim(),
+              residence: (row.residence || '').trim(),
               citizenships,
               airports,
             }

@@ -24,8 +24,7 @@ export default function TeamTable({ team, filename, onFindLocations, onReset, sh
             <thead>
               <tr className="border-b border-white/[0.06]">
                 <th className="text-left py-3 px-4 text-xs font-medium text-slate-400 uppercase tracking-wider">Name</th>
-                <th className="text-left py-3 px-4 text-xs font-medium text-slate-400 uppercase tracking-wider">City</th>
-                <th className="text-left py-3 px-4 text-xs font-medium text-slate-400 uppercase tracking-wider">Country</th>
+                <th className="text-left py-3 px-4 text-xs font-medium text-slate-400 uppercase tracking-wider">Residence</th>
                 <th className="text-left py-3 px-4 text-xs font-medium text-slate-400 uppercase tracking-wider">Passports</th>
                 <th className="text-left py-3 px-4 text-xs font-medium text-slate-400 uppercase tracking-wider">Origin Airports</th>
               </tr>
@@ -39,8 +38,7 @@ export default function TeamTable({ team, filename, onFindLocations, onReset, sh
                   }`}
                 >
                   <td className="py-3 px-4 text-slate-100 font-medium">{member.name}</td>
-                  <td className="py-3 px-4 text-slate-300">{member.city}</td>
-                  <td className="py-3 px-4 text-slate-300">{member.country}</td>
+                  <td className="py-3 px-4 text-slate-300">{member.residence}</td>
                   <td className="py-3 px-4">
                     <div className="flex flex-wrap gap-1">
                       {member.citizenships.map(c => (

@@ -20,7 +20,8 @@ const TRAVEL_TYPE_STYLES = {
 
 const VISA_TYPE_STYLES = {
   free:     { cls: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/25' },
-  easy:     { cls: 'bg-amber-500/15 text-amber-300 border-amber-500/25' },
+  easy:     { cls: 'bg-sky-500/15 text-sky-300 border-sky-500/25' },
+  evisa:    { cls: 'bg-amber-500/15 text-amber-300 border-amber-500/25' },
   required: { cls: 'bg-red-500/15 text-red-300 border-red-500/25' },
   blocked:  { cls: 'bg-red-700/20 text-red-400 border-red-700/30' },
   unknown:  { cls: 'bg-white/5 text-slate-400 border-white/10' },
@@ -43,17 +44,32 @@ function scoreColor(score) {
   return 'bg-red-500'
 }
 
+function visaBarColor(blockedCount) {
+  if (blockedCount <= 1) return 'bg-emerald-500'
+  if (blockedCount <= 3) return 'bg-amber-500'
+  return 'bg-red-500'
+}
+
 function formatHours(h) {
   if (h >= 30) return '30h+'
-  const hours = Math.floor(h)
-  const mins = Math.round((h - hours) * 60)
-  if (mins === 0) return `${hours}h`
-  return `${hours}h ${mins}m`
+  return `~${Math.round(h)}h`
+}
+
+function ordinal(n) {
+  if (n === 1) return '1st'
+  if (n === 2) return '2nd'
+  if (n === 3) return '3rd'
+  return `${n}th`
 }
 
 export default function LocationCard({ result, rank }) {
   const [expanded, setExpanded] = useState(false)
-  const style = RANK_STYLES[rank] || RANK_STYLES[5]
+  const style = RANK_STYLES[rank] ?? {
+    badge: 'bg-white/5 text-slate-400 border-white/10',
+    ring: '',
+    label: ordinal(rank),
+    anim: 'animate-fade-in',
+  }
 
   const flag = getFlagEmoji(result.iso2)
 
@@ -75,17 +91,22 @@ export default function LocationCard({ result, rank }) {
                 {result.city}
               </h3>
               <span className="text-sm text-slate-400">{result.country}</span>
-              <span className="text-xs font-mono text-slate-500 bg-white/5 px-1.5 py-0.5 rounded">{result.iata}</span>
+              {(result.iatas ?? [result.iata]).map(code => (
+                <span key={code} className="text-xs font-mono text-slate-500 bg-white/5 px-1.5 py-0.5 rounded">{code}</span>
+              ))}
+              {result.custom && (
+                <span className="text-xs text-violet-400 border border-violet-500/30 bg-violet-500/10 px-1.5 py-0.5 rounded">custom</span>
+              )}
             </div>
 
             {/* Score bars */}
-            <div className="mt-3 grid grid-cols-2 gap-4">
+            <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-4">
               <div>
                 <div className="flex items-center justify-between mb-1.5">
                   <span className="text-xs text-slate-400">Visa</span>
-                  <span className="text-xs font-semibold text-slate-200">{result.easyCount}/{result.totalMembers} easy</span>
+                  <span className="text-xs font-semibold text-slate-200">{result.easyCount}/{result.totalMembers} no visa</span>
                 </div>
-                <ScoreBar score={result.visaScore} colorClass={scoreColor(result.visaScore)} />
+                <ScoreBar score={result.visaScore} colorClass={visaBarColor(result.totalMembers - result.easyCount)} />
               </div>
               <div>
                 <div className="flex items-center justify-between mb-1.5">
@@ -93,6 +114,36 @@ export default function LocationCard({ result, rank }) {
                   <span className="text-xs font-semibold text-slate-200">avg {formatHours(result.avgHours)}</span>
                 </div>
                 <ScoreBar score={result.travelScore} colorClass={scoreColor(result.travelScore)} />
+              </div>
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <a
+                    href="https://www.worldbank.org/en/publication/worldwide-governance-indicators"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-slate-400 hover:text-slate-200 transition-colors underline decoration-slate-600 underline-offset-2"
+                    title="World Bank Political Stability & Absence of Violence index"
+                  >
+                    Safety
+                  </a>
+                  <span className="text-xs font-semibold text-slate-200">{result.safetyScore ?? 50}/100</span>
+                </div>
+                <ScoreBar score={result.safetyScore ?? 50} colorClass={scoreColor(result.safetyScore ?? 50)} />
+              </div>
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <a
+                    href="https://data.worldbank.org/indicator/PA.NUS.PPPC.RF"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-slate-400 hover:text-slate-200 transition-colors underline decoration-slate-600 underline-offset-2"
+                    title="World Bank Price Level Ratio — lower cost = higher score"
+                  >
+                    Cost
+                  </a>
+                  <span className="text-xs font-semibold text-slate-200">{result.costScore ?? 50}/100</span>
+                </div>
+                <ScoreBar score={result.costScore ?? 50} colorClass={scoreColor(result.costScore ?? 50)} />
               </div>
             </div>
           </div>

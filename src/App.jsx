@@ -5,14 +5,15 @@ import TeamTable from './components/TeamTable.jsx'
 import LoadingSection from './components/LoadingSection.jsx'
 import ResultsSection from './components/ResultsSection.jsx'
 import { parseTeamCSV } from './utils/csvParser.js'
-import { loadPassportIndex, loadAirports, loadRoutes } from './utils/dataLoader.js'
+import { loadPassportIndex, loadAirports, loadRoutes, loadSafetyData, loadCostData } from './utils/dataLoader.js'
 import { scoreLocations, findUnrecognizedCitizenships } from './utils/scorer.js'
 
 export default function App() {
   const [step, setStep] = useState('upload') // upload | team | loading | results
   const [team, setTeam] = useState([])
   const [filename, setFilename] = useState('')
-  const [results, setResults] = useState([])
+  const [allResults, setAllResults] = useState([])
+  const [scoringData, setScoringData] = useState(null)
   const [error, setError] = useState(null)
   const [loadingStatus, setLoadingStatus] = useState('')
   const [warnings, setWarnings] = useState([])
@@ -43,10 +44,15 @@ export default function App() {
       setLoadingStatus('Loading flight routes…')
       const routes = await loadRoutes()
 
+      setLoadingStatus('Loading safety data…')
+      const safetyData = await loadSafetyData()
+
+      setLoadingStatus('Loading cost data…')
+      const costData = await loadCostData()
+
       setLoadingStatus('Calculating scores…')
 
       const allWarnings = []
-
       for (const member of team) {
         for (const iata of member.airports) {
           if (!airports.has(iata)) {
@@ -54,13 +60,12 @@ export default function App() {
           }
         }
       }
-
       allWarnings.push(...findUnrecognizedCitizenships(team, passportIndex))
-
       setWarnings(allWarnings)
 
-      const scored = scoreLocations(team, passportIndex, airports, routes)
-      setResults(scored.slice(0, 5))
+      const scored = scoreLocations(team, passportIndex, airports, routes, safetyData, costData)
+      setAllResults(scored)
+      setScoringData({ passportIndex, airports, routes, safetyData, costData })
       setStep('results')
     } catch (err) {
       setError(err.message)
@@ -72,7 +77,8 @@ export default function App() {
     setStep('upload')
     setTeam([])
     setFilename('')
-    setResults([])
+    setAllResults([])
+    setScoringData(null)
     setError(null)
     setWarnings([])
   }
@@ -107,7 +113,12 @@ export default function App() {
         )}
 
         {step === 'results' && (
-          <ResultsSection results={results} warnings={warnings} />
+          <ResultsSection
+            allResults={allResults}
+            warnings={warnings}
+            team={team}
+            scoringData={scoringData}
+          />
         )}
       </main>
     </div>

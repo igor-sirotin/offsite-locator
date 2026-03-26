@@ -4,6 +4,8 @@ import Papa from 'papaparse'
 let passportIndexCache = null
 let airportsCache = null
 let routesCache = null
+let safetyCache = null
+let costCache = null
 
 // IATA codes that were retired and replaced by a new code for the same airport.
 // routes.dat (OpenFlights, ~2014) still uses the old codes; we rename them on load
@@ -166,6 +168,77 @@ export async function loadRoutes(onStatus) {
 
   routesCache = { forward, reverse }
   return routesCache
+}
+
+/**
+ * Load country safety scores from the World Bank Political Stability and
+ * Absence of Violence/Terrorism indicator (PV.EST).
+ * Returns { byIso2: Map<iso2, score 0-100>, byName: Map<lowerName, score 0-100> }
+ * Score 0 = least stable, 100 = most stable. Missing countries default to 50.
+ */
+export async function loadSafetyData(onStatus) {
+  if (safetyCache) return safetyCache
+
+  if (onStatus) onStatus('Loading safety data…')
+
+  const url = 'https://api.worldbank.org/v2/country/all/indicator/PV.EST?format=json&mrv=1&per_page=300'
+  const response = await fetch(url)
+  if (!response.ok) throw new Error(`Failed to fetch safety data: ${response.status}`)
+
+  const [, entries] = await response.json()
+
+  const valid = entries.filter(e => e.value !== null && /^[A-Z]{2}$/.test(e.country.id))
+  const rawValues = valid.map(e => e.value)
+  const minVal = Math.min(...rawValues)
+  const maxVal = Math.max(...rawValues)
+  const normalize = v => Math.round((v - minVal) / (maxVal - minVal) * 100)
+
+  const byIso2 = new Map()
+  const byName = new Map()
+  for (const entry of valid) {
+    const score = normalize(entry.value)
+    byIso2.set(entry.country.id, score)
+    byName.set(entry.country.value.toLowerCase(), score)
+  }
+
+  safetyCache = { byIso2, byName }
+  return safetyCache
+}
+
+/**
+ * Load country cost scores from the World Bank Price Level Ratio indicator (PA.NUS.PPPC.RF).
+ * A value of 1.0 = same price level as the US; values below 1 are cheaper, above 1 are pricier.
+ * Returns { byIso2: Map<iso2, score 0-100>, byName: Map<lowerName, score 0-100> }
+ * Score 100 = cheapest, 0 = most expensive. Missing countries default to 50.
+ */
+export async function loadCostData(onStatus) {
+  if (costCache) return costCache
+
+  if (onStatus) onStatus('Loading cost data…')
+
+  const url = 'https://api.worldbank.org/v2/country/all/indicator/PA.NUS.PPPC.RF?format=json&mrv=1&per_page=300'
+  const response = await fetch(url)
+  if (!response.ok) throw new Error(`Failed to fetch cost data: ${response.status}`)
+
+  const [, entries] = await response.json()
+
+  const valid = entries.filter(e => e.value !== null && /^[A-Z]{2}$/.test(e.country.id))
+  const rawValues = valid.map(e => e.value)
+  const minVal = Math.min(...rawValues)
+  const maxVal = Math.max(...rawValues)
+  // Invert so cheap (low ratio) → high score
+  const normalize = v => Math.round((1 - (v - minVal) / (maxVal - minVal)) * 100)
+
+  const byIso2 = new Map()
+  const byName = new Map()
+  for (const entry of valid) {
+    const score = normalize(entry.value)
+    byIso2.set(entry.country.id, score)
+    byName.set(entry.country.value.toLowerCase(), score)
+  }
+
+  costCache = { byIso2, byName }
+  return costCache
 }
 
 /**
