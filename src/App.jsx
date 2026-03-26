@@ -17,6 +17,15 @@ export default function App() {
   const [error, setError] = useState(null)
   const [loadingStatus, setLoadingStatus] = useState('')
   const [warnings, setWarnings] = useState([])
+  const [resultsOutdated, setResultsOutdated] = useState(false)
+
+  function handleStartEmpty() {
+    setTeam([])
+    setFilename('')
+    setError(null)
+    setWarnings([])
+    setStep('team')
+  }
 
   async function handleFileUpload(file) {
     setError(null)
@@ -31,9 +40,15 @@ export default function App() {
     }
   }
 
-  async function handleFindLocations() {
+  function handleTeamChange(newTeam) {
+    setTeam(newTeam)
+    if (step === 'results') setResultsOutdated(true)
+  }
+
+  async function runScoring(currentTeam) {
     setStep('loading')
     setError(null)
+    setResultsOutdated(false)
     try {
       setLoadingStatus('Loading visa requirements…')
       const passportIndex = await loadPassportIndex()
@@ -53,17 +68,17 @@ export default function App() {
       setLoadingStatus('Calculating scores…')
 
       const allWarnings = []
-      for (const member of team) {
+      for (const member of currentTeam) {
         for (const iata of member.airports) {
           if (!airports.has(iata)) {
             allWarnings.push(`${member.name}: airport code "${iata}" not found in database`)
           }
         }
       }
-      allWarnings.push(...findUnrecognizedCitizenships(team, passportIndex))
+      allWarnings.push(...findUnrecognizedCitizenships(currentTeam, passportIndex))
       setWarnings(allWarnings)
 
-      const scored = scoreLocations(team, passportIndex, airports, routes, safetyData, costData)
+      const scored = scoreLocations(currentTeam, passportIndex, airports, routes, safetyData, costData)
       setAllResults(scored)
       setScoringData({ passportIndex, airports, routes, safetyData, costData })
       setStep('results')
@@ -81,6 +96,7 @@ export default function App() {
     setScoringData(null)
     setError(null)
     setWarnings([])
+    setResultsOutdated(false)
   }
 
   return (
@@ -95,16 +111,19 @@ export default function App() {
         )}
 
         {step === 'upload' && (
-          <UploadSection onUpload={handleFileUpload} />
+          <UploadSection onUpload={handleFileUpload} onStartEmpty={handleStartEmpty} />
         )}
 
         {(step === 'team' || step === 'results') && (
           <TeamTable
             team={team}
             filename={filename}
-            onFindLocations={handleFindLocations}
+            onFindLocations={() => runScoring(team)}
             onReset={handleReset}
+            onTeamChange={handleTeamChange}
+            onRecalculate={() => runScoring(team)}
             showFindButton={step === 'team'}
+            resultsOutdated={resultsOutdated}
           />
         )}
 
@@ -118,6 +137,7 @@ export default function App() {
             warnings={warnings}
             team={team}
             scoringData={scoringData}
+            outdated={resultsOutdated}
           />
         )}
       </main>

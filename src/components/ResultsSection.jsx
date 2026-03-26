@@ -9,7 +9,7 @@ function parseIataCodes(str) {
   return str.toUpperCase().split(/[\s,;]+/).map(s => s.trim()).filter(s => /^[A-Z]{3}$/.test(s))
 }
 
-export default function ResultsSection({ allResults, warnings, team, scoringData }) {
+export default function ResultsSection({ allResults, warnings, team, scoringData, outdated }) {
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
   const [customResults, setCustomResults] = useState([])
   const [form, setForm] = useState({ city: '', country: '', iatas: '' })
@@ -74,7 +74,7 @@ export default function ResultsSection({ allResults, warnings, team, scoringData
   }
 
   return (
-    <div>
+    <div className={outdated ? 'opacity-50 pointer-events-none select-none transition-opacity' : 'transition-opacity'}>
       {warnings.length > 0 && (
         <div className="mb-6 glass-card rounded-xl p-4 border border-amber-500/30 bg-amber-500/5 animate-fade-in">
           <p className="text-amber-400 text-sm font-semibold mb-2">Warnings:</p>

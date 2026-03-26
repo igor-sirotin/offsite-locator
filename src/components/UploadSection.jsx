@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 
-export default function UploadSection({ onUpload }) {
+export default function UploadSection({ onUpload, onStartEmpty }) {
   const inputRef = useRef(null)
   const [dragging, setDragging] = useState(false)
 
@@ -80,7 +80,16 @@ export default function UploadSection({ onUpload }) {
         />
       </div>
 
-      <div className="mt-6 glass-card rounded-xl p-4 text-xs text-slate-500">
+      <div className="mt-4 flex justify-center">
+        <button
+          onClick={onStartEmpty}
+          className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
+        >
+          or start without a file →
+        </button>
+      </div>
+
+      <div className="mt-4 glass-card rounded-xl p-4 text-xs text-slate-500">
         <p className="font-medium text-slate-400 mb-1">Expected CSV format:</p>
         <code className="text-indigo-300">name, city, country, citizenships, airports</code>
         <p className="mt-1">Citizenships and airports are semicolon-separated (e.g. <code className="text-indigo-300">DE;US</code> or <code className="text-indigo-300">JFK;EWR</code>)</p>
