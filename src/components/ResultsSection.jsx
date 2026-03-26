@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import LocationCard from './LocationCard.jsx'
 import { scoreCustomCity, findAirportsForCity } from '../utils/scorer.js'
+import { encodeTeam } from '../utils/shareEncoder.js'
 
 const PAGE_SIZE = 5
 
@@ -15,6 +16,16 @@ export default function ResultsSection({ allResults, warnings, team, scoringData
   const [form, setForm] = useState({ city: '', country: '', iatas: '' })
   const [formError, setFormError] = useState(null)
   const [scoring, setScoring] = useState(false)
+  const [copied, setCopied] = useState(false)
+
+  function handleShare() {
+    const encoded = encodeTeam(team)
+    const url = `${window.location.origin}${window.location.pathname}?t=${encoded}`
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }
 
   const combined = [...allResults, ...customResults]
     .sort((a, b) => b.combinedScore - a.combinedScore)
@@ -89,10 +100,31 @@ export default function ResultsSection({ allResults, warnings, team, scoringData
       )}
 
       <div className="mb-6 animate-fade-in">
-        <h2 className="text-2xl font-bold text-slate-100">Top Locations</h2>
-        <p className="text-slate-400 text-sm mt-1">
-          Ranked by visa accessibility (40%), cost of living (20%), flight travel time (25%), and country safety (15%)
-        </p>
+        <div className="flex items-center justify-between gap-4">
+          <h2 className="text-2xl font-bold text-slate-100">Top Locations</h2>
+          <button
+            onClick={handleShare}
+            className="shrink-0 flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium border border-white/10 text-slate-300 hover:border-indigo-400/40 hover:text-white transition-colors"
+          >
+            {copied ? (
+              <>
+                <svg className="w-4 h-4 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                <span className="text-green-400">Copied!</span>
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
+                Share link
+              </>
+            )}
+          </button>
+        </div>
+        <div className="flex items-baseline justify-between gap-4 mt-1">
+          <p className="text-xs text-slate-600">
+            Ranked by visa accessibility (40%), cost of living (20%), flight travel time (25%), and country safety (15%)
+          </p>
+          <p className="shrink-0 text-xs text-slate-600">Team data is URL-encoded — nothing stored.</p>
+        </div>
       </div>
 
       <div className="space-y-4">

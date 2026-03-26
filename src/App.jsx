@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Header from './components/Header.jsx'
 import UploadSection from './components/UploadSection.jsx'
 import TeamTable from './components/TeamTable.jsx'
 import LoadingSection from './components/LoadingSection.jsx'
 import ResultsSection from './components/ResultsSection.jsx'
 import { parseTeamCSV } from './utils/csvParser.js'
+import { decodeTeam } from './utils/shareEncoder.js'
 import { loadPassportIndex, loadAirports, loadRoutes, loadSafetyData, loadCostData } from './utils/dataLoader.js'
 import { scoreLocations, findUnrecognizedCitizenships } from './utils/scorer.js'
 
@@ -18,6 +19,19 @@ export default function App() {
   const [loadingStatus, setLoadingStatus] = useState('')
   const [warnings, setWarnings] = useState([])
   const [resultsOutdated, setResultsOutdated] = useState(false)
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const encoded = params.get('t')
+    if (!encoded) return
+    try {
+      const members = decodeTeam(encoded)
+      setTeam(members)
+      runScoring(members)
+    } catch {
+      setError('Invalid or corrupted share link.')
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   function handleStartEmpty() {
     setTeam([])
