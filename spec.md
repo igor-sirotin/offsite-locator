@@ -1,6 +1,6 @@
 # Offsite Locator — Webapp Spec
 
-A webapp that helps choose the best city for a team offsite, based on travel accessibility and visa requirements.
+A webapp that helps choose the best city for a team offsite, based on travel accessibility, visa requirements, and country safety.
 
 ---
 
@@ -9,64 +9,96 @@ A webapp that helps choose the best city for a team offsite, based on travel acc
 The user uploads a CSV file with the following columns:
 
 ```
-name, city, country, citizenships, airports
+name, residence, citizenships, airports
 ```
 
 - `name` — team member's name (string)
-- `city` — their home city (string)
-- `country` — their home country (string)
+- `residence` — their country of residence (string, full English name) — used to determine if they can enter the destination as a resident
 - `citizenships` — semicolon-separated list of passport countries as full English names, e.g. `Germany;United States`
 - `airports` — semicolon-separated list of IATA origin airport codes (3-letter), e.g. `JFK;EWR`
 
 Example row:
 ```
-Alice,Berlin,Germany,Germany;United States,BER
+Alice,Germany,Germany;United States,BER
 ```
 
-If an airport code is unrecognized, warn the user. If a citizenship name is not found in the visa database, warn the user.
+**Warnings** are shown if an airport code is unrecognized or a citizenship name is not found in the visa database.
 
 ---
 
 ## Candidate Destination Cities
 
-A curated list of ~60 major cities worldwide, well-served by international airports (not limited to capitals). Each city is identified by its primary IATA airport code.
+A curated hardcoded list of ~60 major cities worldwide, well-served by international airports (not limited to capitals). Each city has a primary IATA airport code and ISO2 country code. The user can also add custom cities at the results stage.
 
 ---
 
 ## Selection Criteria
 
-### 1. Visa Accessibility (primary, 60% weight)
+### 1. Visa Accessibility (primary, 50% weight)
 
-Data source: [passport-index-data](https://github.com/imorte/passport-index-data)
+Data source: [imorte/passport-index-data](https://github.com/imorte/passport-index-data) — matrix CSV fetched at runtime.
 
-For each team member:
-- They may hold multiple citizenships — use whichever gives the best visa outcome for a given destination.
+Rules:
+- Team members with multiple citizenships use whichever gives the best outcome.
+- Team members living in the destination country are treated as residents (free access, regardless of passport).
 
-Visa categories (in order of preference):
-1. **Visa-free** — no visa required (including numeric stay limits)
-2. **eVisa / Visa on arrival** — easy online or on-arrival process, no embassy visit
-3. **Visa required** — embassy application required
-4. **No admission**
+Visa categories (best → worst):
 
-Score = (members with category 1 or 2) / total members × 100
+| DB value | Meaning | Counts toward score |
+|---|---|---|
+| `-1` | Citizen (same-country diagonal) | ✓ free |
+| `visa free` / numeric (days) | No visa needed | ✓ free |
+| `eta` | Electronic Travel Authorisation — trivial online form, minutes | ✓ free |
+| `visa on arrival` | Granted at the border | ✓ easy |
+| `e-visa` | Online visa application — involves documents, fees, waiting | ✗ |
+| `visa required` | Embassy application required | ✗ |
+| `no admission` | Entry not permitted | ✗ |
 
-### 2. Travel Accessibility (secondary, 40% weight)
+**Note on e-visa granularity:** No free public database exists that encodes e-visa difficulty, cost, or processing time at a per-country-pair level. Commercial sources (IATA Timatic, iVisa, Sherpa) have this data but are not open. Until such a source is available, all e-visas are treated as a barrier (not counted toward the score), which is the conservative safe choice.
 
-Airport data: [OurAirports](https://github.com/davidmegginson/ourairports-data) — actively maintained, includes airports opened after 2014 (e.g. BER).
+Score = (members with free or easy access) / total members × 100
 
-Route data: OpenFlights `routes.dat`. Retired IATA codes are transparently renamed to their replacement (e.g. SXF/TXL → BER) during loading, so current airport codes work correctly.
+### 2. Travel Accessibility (secondary, 25% weight)
 
-Travel effort per person (best route across all their origin airports):
-- **Direct flight** → estimated flight duration (haversine distance ÷ 850 km/h)
-- **1 stop** → flight duration + 2.5h layover
-- **2+ stops** → flight duration + 6h penalty
+Airport data: [OurAirports](https://github.com/davidmegginson/ourairports-data) — actively maintained, includes recent airports (e.g. BER opened 2020). Only airports with scheduled service are loaded.
+
+Route data: [OpenFlights routes.dat](https://github.com/jpatokal/openflights). Retired IATA codes are transparently renamed on load (e.g. SXF/TXL → BER).
+
+Destination cities with multiple airports: best route to any of the city's airports is used (e.g. London: LHR, LGW, LCY, STN, LTN). Team members' origin airports are also tried in combination.
+
+Travel effort per person:
+- **Direct flight** → haversine distance ÷ 850 km/h
+- **1 stop** → flight time + 2.5h layover
+- **2+ stops** → flight time + 6h penalty
 - **No route found** → 30h (maximum penalty)
 
 Score = max(0, 100 − avg_hours × 4)
 
+### 3. Country Safety (15% weight)
+
+Data source: **World Bank Governance Indicators — Political Stability and Absence of Violence/Terrorism (`PV.EST`)**, fetched via free JSON API (no auth required), 205 countries.
+
+- Normalized to 0–100 using the actual min/max of the loaded dataset
+- Lookup by ISO2 code; falls back to country name match
+- Countries missing from dataset default to 50 (neutral)
+
+Score = normalized PV.EST value for the destination country.
+
+### 4. Cost of Living (20% weight)
+
+Data source: **World Bank Price Level Ratio (`PA.NUS.PPPC.RF`)**, fetched via free JSON API (no auth required). This ratio reflects how expensive a country is relative to the US (1.0 = same; <1 = cheaper; >1 = pricier).
+
+- Inverted and normalized to 0–100 so that the cheapest country scores 100 and the most expensive scores 0
+- Lookup by ISO2 code; falls back to country name match
+- Countries missing from dataset default to 50 (neutral)
+
+Score = 100 − normalized price level ratio.
+
 ### Combined Score
 
-`combined = 0.6 × visa_score + 0.4 × travel_score`
+```
+combined = 0.4 × visa_score + 0.25 × travel_score + 0.15 × safety_score + 0.2 × cost_score
+```
 
 ---
 
@@ -75,15 +107,16 @@ Score = max(0, 100 − avg_hours × 4)
 ### Team Members Table
 Shows all loaded members: name, city, country, citizenships, airports.
 
-### Top 5 Suggested Locations
-Ranked list of 5 cities. For each:
-- City name, flag, country, IATA code
-- Combined score (0–100)
-- Visa score bar: X/Y members visa-free or easy
-- Travel score bar: average travel time
-- Expandable per-member table: best passport used, visa status, estimated travel time, connection type
+### Location Rankings
+- Default view: top 5 results
+- "Show more" reveals 5 at a time; "Show all" reveals all ~60 candidates
+- Custom locations can be added (city name + country + optional IATA codes); if airports left blank, they are auto-detected from the OurAirports database by city name, picking the busiest airport(s) by route count
 
-Warnings are shown for unrecognized airport codes or citizenship names.
+Each location card shows:
+- City name, flag emoji, country, IATA code(s), rank badge (gold/silver/bronze for top 3)
+- Combined score (0–100)
+- Four score bars: Visa (X/Y members no-visa), Travel (avg hours), Safety (0–100), Cost (0–100)
+- Expandable per-member table: best passport used, visa status badge, estimated travel time, connection type badge
 
 ---
 
@@ -91,5 +124,6 @@ Warnings are shown for unrecognized airport codes or citizenship names.
 
 - No AI/LLM — free public databases only.
 - No map view.
-- Pure frontend SPA (Vite + React + Tailwind).
-- CSV upload is the only supported input method.
+- Pure frontend SPA (Vite + React + Tailwind + papaparse). No backend.
+- CSV upload is the only team input method.
+- All external data is fetched at runtime and cached in memory for the session.

@@ -1,4 +1,4 @@
-name,city,country,citizenships,airports
-Alice,Berlin,Germany,Germany;United States,BER
-Bob,New York,United States,United States,JFK;EWR
-Carol,Tel Aviv,Israel,Israel;France,TLV
+name,residence,citizenships,airports
+Alice,Germany,Germany;United States,BER
+Bob,United States,United States,JFK;EWR
+Carol,Israel,Israel;France,TLV
