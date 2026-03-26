@@ -5,7 +5,7 @@ export default function Header() {
         <span className="font-semibold">Data disclaimer:</span> Scores are estimates based on public datasets and may be outdated or inaccurate.
         <div className="mt-1.5 flex flex-wrap justify-center gap-x-4 gap-y-1 text-amber-400/70 text-xs">
           <span>Visa: <a href="https://github.com/imorte/passport-index-data" target="_blank" rel="noopener noreferrer" className="underline hover:text-amber-300">passport-index-data</a></span>
-          <span>Flight routes: <a href="https://github.com/jpatokal/openflights" target="_blank" rel="noopener noreferrer" className="underline hover:text-amber-300">OpenFlights (~2014)</a></span>
+          <span>Flight routes: <a href="https://github.com/Jonty/airline-route-data" target="_blank" rel="noopener noreferrer" className="underline hover:text-amber-300">airline-route-data</a></span>
           <span>Airports: <a href="https://github.com/davidmegginson/ourairports-data" target="_blank" rel="noopener noreferrer" className="underline hover:text-amber-300">OurAirports</a></span>
           <span>Safety: <a href="https://data.worldbank.org/indicator/PV.EST" target="_blank" rel="noopener noreferrer" className="underline hover:text-amber-300">World Bank PV.EST</a></span>
           <span>Cost: <a href="https://data.worldbank.org/indicator/PA.NUS.PPPC.RF" target="_blank" rel="noopener noreferrer" className="underline hover:text-amber-300">World Bank PA.NUS.PPPC.RF</a></span>

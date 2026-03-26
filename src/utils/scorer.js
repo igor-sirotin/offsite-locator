@@ -146,7 +146,9 @@ function estimateTravelEffort(memberAirports, destIatas, airports, routes) {
       )
 
       if (routes.forward.get(originIata)?.has(destIata)) {
-        if (baseHours < bestHours) { bestHours = baseHours; bestType = 'direct'; bestOrigin = originIata }
+        const scheduledMin = routes.durations?.get(`${originIata}:${destIata}`)
+        const h = scheduledMin ? scheduledMin / 60 : baseHours
+        if (h < bestHours) { bestHours = h; bestType = 'direct'; bestOrigin = originIata }
         continue
       }
 

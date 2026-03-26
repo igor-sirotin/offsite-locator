@@ -7,21 +7,15 @@ let routesCache = null
 let safetyCache = null
 let costCache = null
 
-// IATA codes that were retired and replaced by a new code for the same airport.
-// routes.dat (OpenFlights, ~2014) still uses the old codes; we rename them on load
-// so the rest of the app works with current codes without any special-casing.
-const IATA_RENAMES = {
-  SXF: 'BER', // Berlin Schönefeld → Berlin Brandenburg (opened Nov 2020, same site)
-  TXL: 'BER', // Berlin Tegel → Berlin Brandenburg (closed Nov 2020)
-}
-
 const PASSPORT_INDEX_URL =
   'https://raw.githubusercontent.com/imorte/passport-index-data/master/passport-index-matrix.csv'
 // OurAirports: actively maintained, includes airports opened after 2014
 const AIRPORTS_URL =
   'https://raw.githubusercontent.com/davidmegginson/ourairports-data/main/airports.csv'
+// Jonty/airline-route-data: weekly scrape of flightsfrom.com; current route schedules
+// with per-route scheduled flight duration (minutes) and distance (km).
 const ROUTES_URL =
-  'https://raw.githubusercontent.com/jpatokal/openflights/master/data/routes.dat'
+  'https://raw.githubusercontent.com/Jonty/airline-route-data/main/airline_routes.json'
 
 async function fetchText(url) {
   const response = await fetch(url)
@@ -126,10 +120,11 @@ export async function loadAirports(onStatus) {
 }
 
 /**
- * Parse routes from OpenFlights routes.dat.
- * Format: Airline, AirlineID, SrcAirport, SrcAirportID, DstAirport, DstAirportID, Codeshare, Stops, Equipment
- * Retired IATA codes are renamed to current codes via IATA_RENAMES.
- * Returns { forward: Map<src, Set<dst>>, reverse: Map<dst, Set<src>> }
+ * Load routes from Jonty/airline-route-data (weekly scrape of flightsfrom.com).
+ * Format: JSON keyed by IATA code; each entry has a `routes` array with
+ *   { iata, km, min, carriers[] } — `min` is scheduled flight duration.
+ * Returns { forward: Map<src, Set<dst>>, reverse: Map<dst, Set<src>>,
+ *           durations: Map<"src:dst", minutes> }
  */
 export async function loadRoutes(onStatus) {
   if (routesCache) return routesCache
@@ -137,36 +132,29 @@ export async function loadRoutes(onStatus) {
   if (onStatus) onStatus('Loading flight routes…')
 
   const text = await fetchText(ROUTES_URL)
-  const lines = text.split('\n')
+  const data = JSON.parse(text)
 
   const forward = new Map()
   const reverse = new Map()
+  const durations = new Map()
 
-  for (const line of lines) {
-    const trimmed = line.trim()
-    if (!trimmed) continue
+  for (const [src, airport] of Object.entries(data)) {
+    if (!src || src.length !== 3 || !Array.isArray(airport.routes)) continue
+    for (const route of airport.routes) {
+      const dst = route.iata
+      if (!dst || dst.length !== 3) continue
 
-    const fields = trimmed.split(',')
-    if (fields.length < 5) continue
+      if (!forward.has(src)) forward.set(src, new Set())
+      forward.get(src).add(dst)
 
-    let src = (fields[2] || '').trim()
-    let dst = (fields[4] || '').trim()
+      if (!reverse.has(dst)) reverse.set(dst, new Set())
+      reverse.get(dst).add(src)
 
-    if (!src || src === '\\N' || !dst || dst === '\\N') continue
-    if (src.length !== 3 || dst.length !== 3) continue
-
-    // Apply known IATA code renames so stale codes map to current ones
-    src = IATA_RENAMES[src] ?? src
-    dst = IATA_RENAMES[dst] ?? dst
-
-    if (!forward.has(src)) forward.set(src, new Set())
-    forward.get(src).add(dst)
-
-    if (!reverse.has(dst)) reverse.set(dst, new Set())
-    reverse.get(dst).add(src)
+      if (route.min) durations.set(`${src}:${dst}`, route.min)
+    }
   }
 
-  routesCache = { forward, reverse }
+  routesCache = { forward, reverse, durations }
   return routesCache
 }
 

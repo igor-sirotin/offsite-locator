@@ -23,7 +23,7 @@ npm run dev
 |---|---|---|
 | [imorte/passport-index-data](https://github.com/imorte/passport-index-data) | Visa requirements matrix | Fetched at runtime; keys are full English country names |
 | [OurAirports](https://github.com/davidmegginson/ourairports-data) | Airport coordinates + IATA codes | Use this, NOT OpenFlights airports.dat — OurAirports includes BER (opened 2020) |
-| [OpenFlights routes.dat](https://github.com/jpatokal/openflights) | Flight route graph | ~2014 vintage; SXF/TXL renamed to BER via `IATA_RENAMES` in `dataLoader.js` |
+| [Jonty/airline-route-data](https://github.com/Jonty/airline-route-data) | Flight route graph | Weekly scrape of flightsfrom.com; includes scheduled duration (`min`) and distance (`km`) per route |
 | World Bank PV.EST API | Country safety scores | Free, no auth, 205 countries; normalized 0–100 |
 
 All datasets are cached in module-level variables after first fetch (session cache).
@@ -38,9 +38,6 @@ All datasets are cached in module-level variables after first fetch (session cac
 
 ### Citizenship matching
 CSV citizenships are full English country names (e.g. `Germany`, `United States`). Do NOT call `.toUpperCase()` on them — passport index keys are mixed case. `COUNTRY_ALIASES` in `scorer.js` handles known variants (Czechia/Czech Republic, Türkiye/Turkey, etc.).
-
-### IATA_RENAMES
-`SXF` and `TXL` are renamed to `BER` during routes.dat parsing. This is a data correction, not a fallback — the old codes no longer exist.
 
 ### Passport index `-1` values
 In the raw matrix CSV, `-1` appears on the diagonal (same-country pairs) and means "citizen". It does NOT mean "no data" or "no admission". It's mapped to `'citizen'` in `normVisa()`.
@@ -65,8 +62,8 @@ combined = 0.4 × visa_score + 0.25 × travel_score + 0.15 × safety_score + 0.2
   - Easy: visa on arrival
   - Barrier: e-visa, visa required, no admission
 - **Travel score**: `max(0, 100 − avg_hours × 4)`
-  - Direct: haversine distance ÷ 850 km/h
-  - 1 stop: flight time + 2.5h
+  - Direct: scheduled duration from route data, fallback to haversine ÷ 850 km/h
+  - 1 stop: haversine flight time + 2.5h
   - 2+ stops: flight time + 6h
   - No route: 30h penalty
 - **Safety score**: World Bank PV.EST normalized to 0–100; missing → 50
