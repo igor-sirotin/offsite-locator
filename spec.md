@@ -76,17 +76,17 @@ Score = max(0, 100 − avg_hours × 4)
 
 ### 3. Country Safety (15% weight)
 
-Data source: **World Bank Governance Indicators — Political Stability and Absence of Violence/Terrorism (`PV.EST`)**, fetched via free JSON API (no auth required), 205 countries.
+Data source: **World Bank Governance Indicators — Political Stability governance score (`GOV_WGI_PV.SC`)**, fetched via free JSON API (no auth required), ~200 countries. Replaces the retired `PV.EST` indicator (the `-2.5..+2.5` estimate); `GOV_WGI_PV.SC` is the same dimension already published on a 0–100 scale.
 
-- Normalized to 0–100 using the actual min/max of the loaded dataset
+- Rescaled to 0–100 using the actual min/max of the loaded dataset
 - Lookup by ISO2 code; falls back to country name match
 - Countries missing from dataset default to 50 (neutral)
 
-Score = normalized PV.EST value for the destination country.
+Score = rescaled `GOV_WGI_PV.SC` value for the destination country.
 
 ### 4. Cost of Living (20% weight)
 
-Data source: **World Bank Price Level Ratio (`PA.NUS.PPPC.RF`)**, fetched via free JSON API (no auth required). This ratio reflects how expensive a country is relative to the US (1.0 = same; <1 = cheaper; >1 = pricier).
+Data source: **World Bank Price Level Index, GDP (`PA.NUS.GDP.PLI`)**, fetched via free JSON API (no auth required). This index reflects how expensive a country is relative to the US (USA = 100; <100 = cheaper; >100 = pricier). Replaces the retired `PA.NUS.PPPC.RF` ratio (same dimension, expressed as a ratio with USA = 1.0).
 
 - Inverted and normalized to 0–100 so that the cheapest country scores 100 and the most expensive scores 0
 - Lookup by ISO2 code; falls back to country name match

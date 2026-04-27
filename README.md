@@ -41,8 +41,8 @@ Cities are ranked by a weighted combined score:
 |---|---|---|
 | Visa accessibility | 40% | [passport-index-data](https://github.com/imorte/passport-index-data) |
 | Travel time | 25% | [OurAirports](https://github.com/davidmegginson/ourairports-data) + [OpenFlights routes](https://github.com/jpatokal/openflights) |
-| Country safety | 15% | World Bank PV.EST indicator |
-| Cost of living | 20% | World Bank price level ratio |
+| Country safety | 15% | World Bank `GOV_WGI_PV.SC` (Political Stability governance score) |
+| Cost of living | 20% | World Bank `PA.NUS.GDP.PLI` (Price level index, GDP) |
 
 **Visa score** counts members with free/easy access (visa-free, eTA, visa on arrival, citizen, resident) vs. those who face barriers (e-visa, visa required). e-visas are treated as barriers since no free database encodes their cost or processing time.
 

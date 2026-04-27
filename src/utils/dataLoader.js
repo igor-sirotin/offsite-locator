@@ -169,11 +169,15 @@ export async function loadSafetyData(onStatus) {
 
   if (onStatus) onStatus('Loading safety data…')
 
-  const url = 'https://api.worldbank.org/v2/country/all/indicator/PV.EST?format=json&mrv=1&per_page=300'
+  const url = 'https://api.worldbank.org/v2/country/all/indicator/GOV_WGI_PV.SC?format=json&mrv=1&per_page=300'
   const response = await fetch(url)
   if (!response.ok) throw new Error(`Failed to fetch safety data: ${response.status}`)
 
-  const [, entries] = await response.json()
+  const body = await response.json()
+  if (!Array.isArray(body) || !Array.isArray(body[1])) {
+    throw new Error(`World Bank safety indicator returned no data: ${JSON.stringify(body).slice(0, 200)}`)
+  }
+  const entries = body[1]
 
   const valid = entries.filter(e => e.value !== null && /^[A-Z]{2}$/.test(e.country.id))
   const rawValues = valid.map(e => e.value)
@@ -204,11 +208,15 @@ export async function loadCostData(onStatus) {
 
   if (onStatus) onStatus('Loading cost data…')
 
-  const url = 'https://api.worldbank.org/v2/country/all/indicator/PA.NUS.PPPC.RF?format=json&mrv=1&per_page=300'
+  const url = 'https://api.worldbank.org/v2/country/all/indicator/PA.NUS.GDP.PLI?format=json&mrv=1&per_page=300'
   const response = await fetch(url)
   if (!response.ok) throw new Error(`Failed to fetch cost data: ${response.status}`)
 
-  const [, entries] = await response.json()
+  const body = await response.json()
+  if (!Array.isArray(body) || !Array.isArray(body[1])) {
+    throw new Error(`World Bank cost indicator returned no data: ${JSON.stringify(body).slice(0, 200)}`)
+  }
+  const entries = body[1]
 
   const valid = entries.filter(e => e.value !== null && /^[A-Z]{2}$/.test(e.country.id))
   const rawValues = valid.map(e => e.value)

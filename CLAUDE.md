@@ -24,7 +24,7 @@ npm run dev
 | [imorte/passport-index-data](https://github.com/imorte/passport-index-data) | Visa requirements matrix | Fetched at runtime; keys are full English country names |
 | [OurAirports](https://github.com/davidmegginson/ourairports-data) | Airport coordinates + IATA codes | Use this, NOT OpenFlights airports.dat — OurAirports includes BER (opened 2020) |
 | [Jonty/airline-route-data](https://github.com/Jonty/airline-route-data) | Flight route graph | Weekly scrape of flightsfrom.com; includes scheduled duration (`min`) and distance (`km`) per route |
-| World Bank PV.EST API | Country safety scores | Free, no auth, 205 countries; normalized 0–100 |
+| World Bank `GOV_WGI_PV.SC` API | Country safety scores | Free, no auth, ~200 countries; already 0–100, rescaled to min/max |
 
 All datasets are cached in module-level variables after first fetch (session cache).
 
@@ -66,8 +66,8 @@ combined = 0.4 × visa_score + 0.25 × travel_score + 0.15 × safety_score + 0.2
   - 1 stop: haversine flight time + 2.5h
   - 2+ stops: flight time + 6h
   - No route: 30h penalty
-- **Safety score**: World Bank PV.EST normalized to 0–100; missing → 50
-- **Cost score**: World Bank PA.NUS.PPPC.RF price level ratio, inverted and normalized to 0–100 (cheap = 100, expensive = 0); missing → 50
+- **Safety score**: World Bank `GOV_WGI_PV.SC` (Political Stability governance score) normalized to 0–100; missing → 50. Replaces the retired `PV.EST` indicator.
+- **Cost score**: World Bank `PA.NUS.GDP.PLI` (Price level index, GDP; USA = 100), inverted and normalized to 0–100 (cheap = 100, expensive = 0); missing → 50. Replaces the retired `PA.NUS.PPPC.RF` indicator.
 
 ## File Map
 
