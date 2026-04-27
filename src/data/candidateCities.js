@@ -30,6 +30,14 @@ export const CANDIDATE_CITIES = [
   { city: 'Riga', country: 'Latvia', iata: 'RIX', iso2: 'LV' },
   { city: 'Porto', country: 'Portugal', iata: 'OPO', iso2: 'PT' },
   { city: 'Tbilisi', country: 'Georgia', iata: 'TBS', iso2: 'GE' },
+  { city: 'Astana', country: 'Kazakhstan', iata: 'NQZ', iso2: 'KZ' },
+  { city: 'Yerevan', country: 'Armenia', iata: 'EVN', iso2: 'AM' },
+  { city: 'Bucharest', country: 'Romania', iata: 'OTP', iso2: 'RO' },
+  { city: 'Sofia', country: 'Bulgaria', iata: 'SOF', iso2: 'BG' },
+  { city: 'Belgrade', country: 'Serbia', iata: 'BEG', iso2: 'RS' },
+  { city: 'Zagreb', country: 'Croatia', iata: 'ZAG', iso2: 'HR' },
+  { city: 'Ljubljana', country: 'Slovenia', iata: 'LJU', iso2: 'SI' },
+  { city: 'Podgorica', country: 'Montenegro', iata: 'TGD', iso2: 'ME' },
 
   // Americas
   { city: 'New York', country: 'United States', iata: 'JFK', iso2: 'US' },
@@ -51,6 +59,7 @@ export const CANDIDATE_CITIES = [
   { city: 'Dubai', country: 'United Arab Emirates', iata: 'DXB', iso2: 'AE' },
   { city: 'Doha', country: 'Qatar', iata: 'DOH', iso2: 'QA' },
   { city: 'Istanbul', country: 'Turkey', iata: 'IST', iso2: 'TR' },
+  { city: 'Dalaman', country: 'Turkey', iata: 'DLM', iso2: 'TR' },
   { city: 'Tel Aviv', country: 'Israel', iata: 'TLV', iso2: 'IL' },
   { city: 'Nairobi', country: 'Kenya', iata: 'NBO', iso2: 'KE' },
   { city: 'Cape Town', country: 'South Africa', iata: 'CPT', iso2: 'ZA' },
