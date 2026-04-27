@@ -17,6 +17,19 @@ export default function ResultsSection({ allResults, warnings, team, scoringData
   const [formError, setFormError] = useState(null)
   const [scoring, setScoring] = useState(false)
   const [copied, setCopied] = useState(false)
+  const FILTER_DEFAULTS = { maxHours: 30, minSafety: 0, minCost: 0 }
+  const [filters, setFilters] = useState(FILTER_DEFAULTS)
+
+  function handleFilterChange(e) {
+    const { name, value } = e.target
+    setFilters(prev => ({ ...prev, [name]: Number(value) }))
+    setVisibleCount(PAGE_SIZE)
+  }
+
+  function clearFilters() {
+    setFilters(FILTER_DEFAULTS)
+    setVisibleCount(PAGE_SIZE)
+  }
 
   function handleShare() {
     const encoded = encodeTeam(team)
@@ -30,8 +43,19 @@ export default function ResultsSection({ allResults, warnings, team, scoringData
   const combined = [...allResults, ...customResults]
     .sort((a, b) => b.combinedScore - a.combinedScore)
 
-  const visible = combined.slice(0, visibleCount)
-  const hasMore = visibleCount < combined.length
+  const filtered = combined.filter(r => {
+    if (r.avgHours > filters.maxHours) return false
+    if ((r.safetyScore ?? 50) < filters.minSafety) return false
+    if ((r.costScore ?? 50) < filters.minCost) return false
+    return true
+  })
+
+  const filtersActive =
+    filters.maxHours !== FILTER_DEFAULTS.maxHours ||
+    filters.minSafety !== FILTER_DEFAULTS.minSafety ||
+    filters.minCost !== FILTER_DEFAULTS.minCost
+  const visible = filtered.slice(0, visibleCount)
+  const hasMore = visibleCount < filtered.length
 
   function handleFormChange(e) {
     setForm(prev => ({ ...prev, [e.target.name]: e.target.value }))
@@ -127,11 +151,95 @@ export default function ResultsSection({ allResults, warnings, team, scoringData
         </div>
       </div>
 
+      <div className="mb-4 glass-card rounded-2xl p-4 animate-fade-in">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-semibold text-slate-200">Filters</h3>
+          {filtersActive ? (
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="text-xs font-medium text-slate-400 hover:text-indigo-300 transition-colors"
+            >
+              Clear filters
+            </button>
+          ) : (
+            <span className="text-xs text-slate-600">All {combined.length} locations</span>
+          )}
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-baseline justify-between">
+              <label className="text-xs text-slate-400">Max travel time</label>
+              <span className="text-xs font-semibold text-slate-200 tabular-nums">
+                {filters.maxHours >= FILTER_DEFAULTS.maxHours ? 'Any' : `≤ ${filters.maxHours}h`}
+              </span>
+            </div>
+            <input
+              type="range"
+              name="maxHours"
+              value={filters.maxHours}
+              onChange={handleFilterChange}
+              min="1"
+              max="30"
+              step="0.5"
+              className="w-full accent-indigo-500"
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-baseline justify-between">
+              <label className="text-xs text-slate-400">Min safety score</label>
+              <span className="text-xs font-semibold text-slate-200 tabular-nums">
+                {filters.minSafety <= 0 ? 'Any' : `≥ ${filters.minSafety}`}
+              </span>
+            </div>
+            <input
+              type="range"
+              name="minSafety"
+              value={filters.minSafety}
+              onChange={handleFilterChange}
+              min="0"
+              max="100"
+              step="1"
+              className="w-full accent-indigo-500"
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-baseline justify-between">
+              <label className="text-xs text-slate-400">Min cost score <span className="text-slate-600">(higher = cheaper)</span></label>
+              <span className="text-xs font-semibold text-slate-200 tabular-nums">
+                {filters.minCost <= 0 ? 'Any' : `≥ ${filters.minCost}`}
+              </span>
+            </div>
+            <input
+              type="range"
+              name="minCost"
+              value={filters.minCost}
+              onChange={handleFilterChange}
+              min="0"
+              max="100"
+              step="1"
+              className="w-full accent-indigo-500"
+            />
+          </div>
+        </div>
+        {filtersActive && (
+          <p className="mt-3 text-xs text-slate-500">
+            Showing {filtered.length} of {combined.length} {combined.length === 1 ? 'location' : 'locations'}.
+          </p>
+        )}
+      </div>
+
       <div className="space-y-4">
         {visible.map((result, idx) => (
           <LocationCard key={result.iata} result={result} rank={idx + 1} />
         ))}
       </div>
+
+      {filtered.length === 0 && (
+        <div className="glass-card rounded-2xl p-8 text-center text-sm text-slate-400">
+          No locations match the current filters.
+        </div>
+      )}
 
       {hasMore && (
         <div className="mt-4 flex justify-center gap-3">
@@ -139,10 +247,10 @@ export default function ResultsSection({ allResults, warnings, team, scoringData
             onClick={() => setVisibleCount(v => v + PAGE_SIZE)}
             className="px-6 py-2.5 rounded-xl text-sm font-medium text-slate-300 border border-white/10 hover:border-indigo-400/40 hover:text-white transition-colors"
           >
-            Show more ({combined.length - visibleCount} remaining)
+            Show more ({filtered.length - visibleCount} remaining)
           </button>
           <button
-            onClick={() => setVisibleCount(combined.length)}
+            onClick={() => setVisibleCount(filtered.length)}
             className="px-6 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:text-slate-200 transition-colors"
           >
             Show all
