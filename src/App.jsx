@@ -5,7 +5,7 @@ import TeamTable from './components/TeamTable.jsx'
 import LoadingSection from './components/LoadingSection.jsx'
 import ResultsSection from './components/ResultsSection.jsx'
 import { parseTeamCSV } from './utils/csvParser.js'
-import { decodeTeam } from './utils/shareEncoder.js'
+import { decodeTeam, encodeTeam } from './utils/shareEncoder.js'
 import { loadPassportIndex, loadAirports, loadRoutes, loadSafetyData, loadCostData } from './utils/dataLoader.js'
 import { scoreLocations, findUnrecognizedCitizenships } from './utils/scorer.js'
 
@@ -32,6 +32,17 @@ export default function App() {
       setError('Invalid or corrupted share link.')
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Keep ?t= in the URL in sync with the current team so the address bar is always shareable.
+  useEffect(() => {
+    const url = new URL(window.location.href)
+    if (team.length === 0) {
+      url.searchParams.delete('t')
+    } else {
+      url.searchParams.set('t', encodeTeam(team))
+    }
+    window.history.replaceState(null, '', url.toString())
+  }, [team])
 
   function handleStartEmpty() {
     setTeam([])
